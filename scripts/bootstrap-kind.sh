@@ -18,7 +18,7 @@ echo ">> kube-prometheus-stack"
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts >/dev/null
 helm repo update >/dev/null
 helm upgrade --install kube-prometheus-stack prometheus-community/kube-prometheus-stack \
-  -n monitoring --create-namespace -f deploy/monitoring/kube-prometheus-stack-values.yaml --wait
+  -n monitoring --create-namespace -f deploy/monitoring/kube-prometheus-stack-values.yaml --wait --timeout 10m
 
 echo ">> Argo CD"
 kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f -
