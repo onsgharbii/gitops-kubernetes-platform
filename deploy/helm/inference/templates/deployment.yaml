@@ -1,0 +1,82 @@
+{{- if not (has .Values.activeColor (list "blue" "green")) }}
+{{- fail "activeColor must be blue or green" }}
+{{- end }}
+{{- if not (index .Values .Values.activeColor).enabled }}
+{{- fail "the active color must be enabled" }}
+{{- end }}
+{{- range $color := list "blue" "green" }}
+{{- $cfg := index $.Values $color }}
+{{- if $cfg.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inference-{{ $color }}
+  labels:
+    {{- include "inference.labels" $ | nindent 4 }}
+    color: {{ $color }}
+spec:
+  {{- if not $.Values.autoscaling.enabled }}
+  replicas: {{ $.Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: inference
+      color: {{ $color }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: inference
+        color: {{ $color }}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+      containers:
+        - name: inference
+          image: "{{ $.Values.image.repository }}:{{ $cfg.tag }}"
+          imagePullPolicy: {{ $.Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8000
+          env:
+            - name: MODEL_VERSION
+              value: {{ $cfg.modelVersion | quote }}
+            - name: DEPLOYMENT_COLOR
+              value: {{ $color }}
+          readinessProbe:
+            httpGet: { path: /healthz, port: http }
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: { path: /healthz, port: http }
+            periodSeconds: 15
+          resources:
+            {{- toYaml $.Values.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+{{- if $.Values.autoscaling.enabled }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: inference-{{ $color }}
+  labels:
+    {{- include "inference.labels" $ | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: inference-{{ $color }}
+  minReplicas: {{ $.Values.autoscaling.minReplicas }}
+  maxReplicas: {{ $.Values.autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ $.Values.autoscaling.targetCPUUtilizationPercentage }}
+{{- end }}
+{{- end }}
+{{- end }}

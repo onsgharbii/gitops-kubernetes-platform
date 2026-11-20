@@ -1,0 +1,31 @@
+# Live traffic: always points at the active color.
+apiVersion: v1
+kind: Service
+metadata:
+  name: inference
+  labels:
+    {{- include "inference.labels" . | nindent 4 }}
+spec:
+  selector:
+    app.kubernetes.io/name: inference
+    color: {{ .Values.activeColor }}
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http
+---
+# Preview: points at the idle color so a new release can be tested before the switch.
+apiVersion: v1
+kind: Service
+metadata:
+  name: inference-preview
+  labels:
+    {{- include "inference.labels" . | nindent 4 }}
+spec:
+  selector:
+    app.kubernetes.io/name: inference
+    color: {{ include "inference.idleColor" . }}
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http

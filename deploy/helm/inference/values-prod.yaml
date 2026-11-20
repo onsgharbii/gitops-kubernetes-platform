@@ -1,0 +1,11 @@
+# Prod releases go through Blue/Green: see .github/workflows/release-inference.yml
+replicaCount: 2
+autoscaling:
+  enabled: true
+activeColor: blue
+blue:
+  enabled: true
+  tag: latest
+green:
+  enabled: false
+  tag: latest

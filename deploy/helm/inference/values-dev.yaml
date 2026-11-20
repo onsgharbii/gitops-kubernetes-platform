@@ -1,0 +1,5 @@
+# Dev follows main: CI updates blue.tag on every push.
+activeColor: blue
+blue:
+  enabled: true
+  tag: latest
