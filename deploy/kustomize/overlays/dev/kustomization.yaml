@@ -2,17 +2,19 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 namespace: platform-dev
 resources:
-  - namespace.yaml
-  - ../../base
+- namespace.yaml
+- ../../base
 patches:
-  - target: { kind: Ingress, name: platform }
-    patch: |
-      - op: replace
-        path: /spec/rules/0/host
-        value: dev.localtest.me
+- patch: |
+    - op: replace
+      path: /spec/rules/0/host
+      value: dev.localtest.me
+  target:
+    kind: Ingress
+    name: platform
 # Image tags below are bumped automatically by CI on every push to main.
 images:
-  - name: ghcr.io/onsgharbii/gitops-kubernetes-platform/api
-    newTag: latest
-  - name: ghcr.io/onsgharbii/gitops-kubernetes-platform/web
-    newTag: latest
+- name: ghcr.io/onsgharbii/gitops-kubernetes-platform/api
+  newTag: 2baa6cff9c2795212e44bb17fd12eab94c9f048f
+- name: ghcr.io/onsgharbii/gitops-kubernetes-platform/web
+  newTag: 2baa6cff9c2795212e44bb17fd12eab94c9f048f
