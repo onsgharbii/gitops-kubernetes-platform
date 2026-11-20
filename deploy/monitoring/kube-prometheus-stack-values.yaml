@@ -1,0 +1,10 @@
+# Lightweight settings for a local kind cluster.
+prometheus:
+  prometheusSpec:
+    # Pick up ServiceMonitors from every namespace, not only the Helm release's.
+    serviceMonitorSelectorNilUsesHelmValues: false
+    retention: 2d
+grafana:
+  adminPassword: admin  # local demo only, never in a real environment
+alertmanager:
+  enabled: false
