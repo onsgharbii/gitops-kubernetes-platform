@@ -1,0 +1,35 @@
+name: Promote api/web to prod
+
+on:
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: "Commit SHA already running in dev"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    env:
+      IMAGE_PREFIX: ghcr.io/${{ github.repository }}
+      SHA: ${{ inputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check the images exist
+        run: |
+          for svc in api web; do
+            docker manifest inspect "${IMAGE_PREFIX}/${svc}:${SHA}" > /dev/null
+          done
+      - name: Set prod image tags
+        run: |
+          cd deploy/kustomize/overlays/prod
+          kustomize edit set image "${IMAGE_PREFIX}/api:${SHA}" "${IMAGE_PREFIX}/web:${SHA}"
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "deploy(prod): api/web ${SHA::7}"
+          git push

@@ -1,0 +1,61 @@
+name: Blue/Green release (inference, prod)
+
+# 1. deploy  -> run the new tag on the idle color (live traffic untouched)
+# 2. test it through the inference-preview Service
+# 3. switch  -> point the live Service at the new color (zero downtime)
+# 4. cleanup -> remove the old color once the new one is healthy
+#    (before cleanup, running "switch" again is an instant rollback)
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        type: choice
+        options: [deploy, switch, cleanup]
+        required: true
+      tag:
+        description: "Image tag (commit SHA), only for deploy"
+        required: false
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      VALUES: deploy/helm/inference/values-prod.yaml
+      ACTION: ${{ inputs.action }}
+      TAG: ${{ inputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Update values-prod.yaml
+        run: |
+          active=$(yq '.activeColor' "$VALUES")
+          if [ "$active" = blue ]; then idle=green; else idle=blue; fi
+          case "$ACTION" in
+            deploy)
+              if [ -z "$TAG" ]; then echo "tag is required for deploy"; exit 1; fi
+              yq -i ".${idle}.enabled = true | .${idle}.tag = strenv(TAG)" "$VALUES"
+              msg="release(inference): deploy ${TAG::7} on ${idle}"
+              ;;
+            switch)
+              if [ "$(yq ".${idle}.enabled" "$VALUES")" != true ]; then echo "${idle} is not deployed"; exit 1; fi
+              yq -i ".activeColor = \"${idle}\"" "$VALUES"
+              msg="release(inference): switch traffic ${active} -> ${idle}"
+              ;;
+            cleanup)
+              yq -i ".${idle}.enabled = false" "$VALUES"
+              msg="release(inference): remove idle color ${idle}"
+              ;;
+          esac
+          echo "MSG=${msg}" >> "$GITHUB_ENV"
+          cat "$VALUES"
+      - name: Validate chart
+        run: helm template inference deploy/helm/inference -f "$VALUES" > /dev/null
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "$MSG"
+          git push
